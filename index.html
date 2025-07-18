@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Twitter Sentiment Analysis</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    #darkModeToggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body class="bg-light text-dark" id="mainBody">
+  <!-- Dark/Light Mode Toggle -->
+  <button id="darkModeToggle" class="btn btn-outline-secondary btn-sm">🌙 Dark Mode</button>
+
+  <div class="container py-5">
+    <h1 class="mb-4 text-center">Twitter Sentiment Analysis</h1>
+
+    <!-- Username Section -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title">Analyze Tweets by Username</h5>
+        <div class="input-group mb-3">
+          <input type="text" id="usernameInput" class="form-control" placeholder="Enter Twitter username">
+          <button class="btn btn-primary" onclick="analyzeByUsername()">Analyze</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual Tweet Input -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title">Analyze Custom Tweet</h5>
+        <div class="input-group mb-3">
+          <input type="text" id="tweetInput" class="form-control" placeholder="Type a tweet">
+          <button class="btn btn-success" onclick="analyzeTweet()">Analyze</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loader -->
+    <div id="loader" class="text-center my-3" style="display: none;">
+      <div class="spinner-border text-secondary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results" class="mt-4"></div>
+  </div>
+
+  <script>
+    const loader = document.getElementById('loader');
+    const resultsDiv = document.getElementById('results');
+    const toggleBtn = document.getElementById('darkModeToggle');
+    const body = document.getElementById('mainBody');
+
+    let isDark = false;
+
+    toggleBtn.addEventListener('click', () => {
+      isDark = !isDark;
+      if (isDark) {
+        body.classList.replace('bg-light', 'bg-dark');
+        body.classList.replace('text-dark', 'text-light');
+        toggleBtn.textContent = '☀️ Light Mode';
+        toggleBtn.classList.replace('btn-outline-secondary', 'btn-outline-light');
+      } else {
+        body.classList.replace('bg-dark', 'bg-light');
+        body.classList.replace('text-light', 'text-dark');
+        toggleBtn.textContent = '🌙 Dark Mode';
+        toggleBtn.classList.replace('btn-outline-light', 'btn-outline-secondary');
+      }
+    });
+
+    function showLoader(show) {
+      loader.style.display = show ? 'block' : 'none';
+    }
+
+    function displaySentiment(sentiment) {
+      const color = sentiment === 'Positive' ? 'success' :
+                    sentiment === 'Negative' ? 'danger' :
+                    sentiment === 'Neutral' ? 'secondary' : 'warning';
+      return `<span class="badge bg-${color}">${sentiment}</span>`;
+    }
+
+    function showError(message) {
+      resultsDiv.innerHTML = `<div class="alert alert-danger">${message}</div>`;
+    }
+
+    async function analyzeByUsername() {
+      const username = document.getElementById('usernameInput').value.trim();
+      if (!username) return showError("⚠️ Please enter a Twitter username.");
+
+      showLoader(true);
+      resultsDiv.innerHTML = '';
+      try {
+        const res = await fetch('http://localhost:5000/api/username', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username })
+        });
+
+        const data = await res.json();
+        if (!data.tweets) throw new Error(data.error || "Unexpected error");
+
+        let html = `<h4>Results for @${username}</h4>`;
+        html += '<ul class="list-group mt-3">';
+        data.tweets.forEach(({ tweet, sentiment }) => {
+          html += `<li class="list-group-item d-flex justify-content-between align-items-start">
+                    <div>${tweet}</div>
+                    ${displaySentiment(sentiment)}
+                  </li>`;
+        });
+        html += '</ul>';
+        resultsDiv.innerHTML = html;
+
+      } catch (err) {
+        showError("❌ Failed to fetch tweets. Please try again.");
+        console.error(err);
+      } finally {
+        showLoader(false);
+      }
+    }
+
+    async function analyzeTweet() {
+      const tweet = document.getElementById('tweetInput').value.trim();
+      if (!tweet) return showError("⚠️ Please enter a tweet.");
+
+      showLoader(true);
+      resultsDiv.innerHTML = '';
+      try {
+        const res = await fetch('http://localhost:5000/api/sentiment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: tweet })
+        });
+
+        const data = await res.json();
+        const sentiment = data.prediction || "Unknown";
+
+        resultsDiv.innerHTML = `
+          <h4>Sentiment for your tweet:</h4>
+          <div class="mt-3">
+            <p class="fs-5">${tweet}</p>
+            ${displaySentiment(sentiment)}
+          </div>
+        `;
+
+      } catch (err) {
+        showError("❌ Could not analyze tweet. Try again.");
+        console.error(err);
+      } finally {
+        showLoader(false);
+      }
+    }
+  </script>
+</body>
+</html>
