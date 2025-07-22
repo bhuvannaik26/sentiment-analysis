@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -8,7 +10,7 @@ const path = require("path");
 const app = express();
 const port = 5000;
 
-const BEARER_TOKEN = 'process.env.BEARER_TOKEN';  // Replace with your actual Bearer Token
+const BEARER_TOKEN = process.env.BEARER_TOKEN;  // Replace with your actual Bearer Token
 
 app.use(express.static(path.join(__dirname)));
 app.use(cors());
