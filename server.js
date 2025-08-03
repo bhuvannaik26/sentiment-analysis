@@ -94,9 +94,12 @@ app.post('/api/username', async (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, "index.html"), {
+    headers: {
+      'Content-Type': 'text/html; charset=UTF-8'
+    }
+  });
 });
-
 
 app.listen(port, () => {
   console.log(`🚀 Server is running on http://localhost:${port}`);
