@@ -23,11 +23,13 @@ app.post('/api/sentiment', (req, res) => {
 
   let options = {
     mode: 'text',
-    pythonPath: 'C:\\Python313\\python.exe',
+    pythonPath: process.env.PYTHON_PATH,
     scriptPath: __dirname,
     args: [text]
   };
 
+  if (!options.pythonPath) delete options.pythonPath;
+  
   PythonShell.run('predict.py', options).then(results => {
     const prediction = JSON.parse(results[0]);
     res.json(prediction);
