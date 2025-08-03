@@ -12,7 +12,7 @@ const port = 5000;
 
 const BEARER_TOKEN = process.env.BEARER_TOKEN;  // Replace with your actual Bearer Token
 
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 app.use(bodyParser.json());
 
