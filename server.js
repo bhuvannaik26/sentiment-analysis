@@ -5,12 +5,12 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const axios = require('axios');
 const { PythonShell } = require('python-shell');
-
 const path = require("path");
+
 const app = express();
 const port = 5000;
 
-const BEARER_TOKEN = process.env.BEARER_TOKEN;  // Replace with your actual Bearer Token
+const BEARER_TOKEN = process.env.BEARER_TOKEN;
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
@@ -23,13 +23,11 @@ app.post('/api/sentiment', (req, res) => {
 
   let options = {
     mode: 'text',
-    pythonPath: process.env.PYTHON_PATH,
+    pythonPath: process.env.PYTHON_PATH || 'python3', // Default to python3 for Docker
     scriptPath: __dirname,
     args: [text]
   };
 
-  if (!options.pythonPath) delete options.pythonPath;
-  
   PythonShell.run('predict.py', options).then(results => {
     const prediction = JSON.parse(results[0]);
     res.json(prediction);
@@ -45,64 +43,56 @@ app.post('/api/username', async (req, res) => {
   console.log('🔍 Received username:', username);
 
   try {
-    // Step 1: Get user ID from username
+    // Get user ID
     const userRes = await axios.get(`https://api.twitter.com/2/users/by/username/${username}`, {
-      headers: {
-        'Authorization': `Bearer ${BEARER_TOKEN}`
-      }
+      headers: { 'Authorization': `Bearer ${BEARER_TOKEN}` }
     });
-
     const userId = userRes.data.data.id;
 
-    // Step 2: Fetch tweets from the user
+    // Get tweets
     const tweetsRes = await axios.get(`https://api.twitter.com/2/users/${userId}/tweets?max_results=5`, {
-      headers: {
-        'Authorization': `Bearer ${BEARER_TOKEN}`
-      }
+      headers: { 'Authorization': `Bearer ${BEARER_TOKEN}` }
     });
-
     const tweets = tweetsRes.data.data.map(tweet => tweet.text);
 
-    // Step 3: Run sentiment analysis on each tweet
-    const promises = tweets.map(text => {
-      return new Promise((resolve, reject) => {
-        let options = {
-          mode: 'text',
-          pythonPath: 'C:\\Python313\\python.exe',
-          scriptPath: __dirname,
-          args: [text]
-        };
+    // Analyze each tweet
+    const predictions = await Promise.all(
+      tweets.map(text =>
+        new Promise(resolve => {
+          let options = {
+            mode: 'text',
+            pythonPath: process.env.PYTHON_PATH || 'python3',
+            scriptPath: __dirname,
+            args: [text]
+          };
 
-        PythonShell.run('predict.py', options).then(results => {
-          try {
-            const prediction = JSON.parse(results[0]);
-            resolve({ tweet: text, sentiment: prediction.prediction });
-          } catch (e) {
-            resolve({ tweet: text, sentiment: 'Error parsing prediction' });
-          }
-        }).catch(err => {
-          resolve({ tweet: text, sentiment: 'Error during prediction' });
-        });
-      });
-    });
+          PythonShell.run('predict.py', options)
+            .then(results => {
+              const prediction = JSON.parse(results[0]);
+              resolve({ tweet: text, sentiment: prediction.prediction });
+            })
+            .catch(err => {
+              console.error('⚠️ Error analyzing tweet:', err);
+              resolve({ tweet: text, sentiment: 'Error during prediction' });
+            });
+        })
+      )
+    );
 
-    const predictions = await Promise.all(promises);
     res.json({ tweets: predictions });
 
   } catch (err) {
-    console.error('❌ Error occurred:', err.response?.data || err.message);
+    console.error('❌ Error fetching tweets:', err.response?.data || err.message);
     res.status(500).json({ error: 'Failed to fetch tweets or run sentiment analysis' });
   }
 });
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"), {
-    headers: {
-      'Content-Type': 'text/html; charset=UTF-8'
-    }
+    headers: { 'Content-Type': 'text/html; charset=UTF-8' }
   });
 });
 
-app.listen(port, '0.0.0.0',() => {
-  console.log(`🚀 Server is running on http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`🚀 Server running on http://localhost:${port}`);
 });
